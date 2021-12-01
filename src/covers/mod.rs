@@ -1,4 +1,8 @@
-use super::*;
+use crate::*;
+
+mod containment;
+
+use containment::Containment;
 
 #[derive(Debug, Clone)]
 struct Layer {
@@ -36,8 +40,8 @@ impl Layer {
         let mut bicliques: Vec<Biclique> = forced
             .iter()
             .map(|&Entry(x, y)| Biclique {
-                left: vec![x],
-                right: vec![y],
+                left: [x].into_iter().collect(),
+                right: [y].into_iter().collect(),
             })
             .collect();
         bicliques.resize(k, Biclique::empty());
@@ -107,7 +111,7 @@ impl Layer {
     }
 
     fn add_left(&mut self, g: &Bigraph, c: usize, x: u32) {
-        for &y in &self.bicliques[c].right {
+        for y in self.bicliques[c].right.iter() {
             let index = Layer::index(g, self.bicliques.len(), Entry(x, y));
             self.data.add(index.in_biclique());
             self.data.remove(index.may_add(c));
@@ -118,7 +122,7 @@ impl Layer {
                 continue 'outer;
             }
 
-            for &x in &self.bicliques[c].left {
+            for x in self.bicliques[c].left.iter() {
                 if !g.get(Entry(x, y)) {
                     continue 'outer;
                 }
@@ -131,13 +135,13 @@ impl Layer {
                 }
             }
         }
-        self.bicliques[c].left.push(x);
+        self.bicliques[c].left.add(x);
 
         self.consistent(g)
     }
 
     fn add_right(&mut self, g: &Bigraph, c: usize, y: u32) {
-        for &x in &self.bicliques[c].left {
+        for x in self.bicliques[c].left.iter() {
             let index = Layer::index(g, self.bicliques.len(), Entry(x, y));
             self.data.add(index.in_biclique());
             self.data.remove(index.may_add(c));
@@ -148,7 +152,7 @@ impl Layer {
                 continue 'outer;
             }
 
-            for &y in &self.bicliques[c].right {
+            for y in self.bicliques[c].right.iter() {
                 if !g.get(Entry(x, y)) {
                     continue 'outer;
                 }
@@ -162,17 +166,17 @@ impl Layer {
             }
         }
 
-        self.bicliques[c].right.push(y);
+        self.bicliques[c].right.add(y);
 
         self.consistent(g)
     }
 
     fn add_entry(&mut self, g: &Bigraph, c: usize, e: Entry) {
-        if !self.bicliques[c].left.contains(&e.0) {
+        if !self.bicliques[c].left.get(e.0) {
             self.add_left(g, c, e.0);
         }
 
-        if !self.bicliques[c].right.contains(&e.1) {
+        if !self.bicliques[c].right.get(e.1) {
             self.add_right(g, c, e.1);
         }
 
@@ -240,6 +244,7 @@ impl Layer {
                             continue 'cliques;
                         }
                     }
+
                     self.data.remove(index.may_add(c));
                     self.consistent(g);
                     return Some(new_layer);
@@ -256,6 +261,7 @@ pub struct CoverIterator<'a> {
     k: usize,
     max_size: usize,
     forced: Vec<Entry>,
+    containment: Containment,
     stack: Vec<Layer>,
 }
 
@@ -269,8 +275,21 @@ impl<'a> CoverIterator<'a> {
             k,
             max_size,
             forced,
+            containment: Containment::init(&initial.bicliques),
             stack: if k > max_size { vec![] } else { vec![initial] },
         }
+    }
+
+    fn finish_layer(&mut self) -> Option<BicliqueCover> {
+        self.containment
+            .finish_layer(self.stack.pop().unwrap().bicliques);
+        self.next()
+    }
+
+    fn discard_layer(&mut self) -> Option<BicliqueCover> {
+        self.containment
+            .discard_layer(self.stack.pop().unwrap().bicliques);
+        self.next()
     }
 }
 
@@ -284,29 +303,28 @@ impl<'a> Iterator for CoverIterator<'a> {
                     elements: layer.bicliques.clone(),
                 }),
                 Ok(false) => {
-                    if let Some(new_layer) = layer.guess_entry(self.g) {
-                        if new_layer.covers(self.g) {
-                            let elements = new_layer.bicliques.clone();
-                            self.stack.push(new_layer);
-                            Some(BicliqueCover { elements })
-                        } else {
-                            self.stack.push(new_layer);
-                            self.next()
+                    while let Some(new_layer) = layer.guess_entry(self.g) {
+                        if self.containment.start_layer(&new_layer.bicliques) {
+                            if new_layer.covers(self.g) {
+                                let elements = new_layer.bicliques.clone();
+                                self.stack.push(new_layer);
+                                return Some(BicliqueCover { elements });
+                            } else {
+                                self.stack.push(new_layer);
+                                return self.next();
+                            }
                         }
-                    } else {
-                        self.stack.pop();
-                        self.next()
                     }
+
+                    self.finish_layer()
                 }
-                Err(()) => {
-                    self.stack.pop();
-                    self.next()
-                }
+                Err(()) => self.finish_layer(),
             }
         } else if self.k < self.max_size {
             self.k += 1;
-            self.stack
-                .push(Layer::initial(self.g, self.k, &self.forced));
+            let init = Layer::initial(self.g, self.k, &self.forced);
+            self.containment.reinit(&init.bicliques);
+            self.stack.push(init);
             self.next()
         } else {
             None

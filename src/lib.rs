@@ -51,13 +51,13 @@ impl Bigraph {
     }
 
     fn may_add(&self, clique: &Biclique, e: Entry) -> bool {
-        for &x in &clique.left {
+        for x in clique.left.iter() {
             if !self.get(Entry(x, e.1)) {
                 return false;
             }
         }
 
-        for &y in &clique.right {
+        for y in clique.right.iter() {
             if !self.get(Entry(e.0, y)) {
                 return false;
             }
@@ -73,38 +73,37 @@ impl Bigraph {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Biclique {
-    left: Vec<u32>,
-    right: Vec<u32>,
+    left: TBitSet<u32>,
+    right: TBitSet<u32>,
 }
 
 impl Biclique {
     fn empty() -> Biclique {
         Biclique {
-            left: Vec::new(),
-            right: Vec::new(),
+            left: TBitSet::new(),
+            right: TBitSet::new(),
         }
     }
 
     fn contains(&self, entry: Entry) -> bool {
-        self.left.contains(&entry.0) && self.right.contains(&entry.1)
+        self.left.get(entry.0) && self.right.get(entry.1)
+    }
+
+    fn contains_clique(&self, other: &Biclique) -> bool {
+        self.left.contains(&other.left) && self.right.contains(&other.right)
     }
 
     fn eq(&self, other: &Biclique) -> bool {
-        self.left.iter().all(|x| other.left.contains(x))
-            && other.left.iter().all(|x| self.left.contains(x))
-            && self.right.iter().all(|y| other.right.contains(y))
-            && other.right.iter().all(|y| self.right.contains(y))
+        self.left == other.left && self.right == other.right
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BicliqueCover {
     elements: Box<[Biclique]>,
 }
-
-
 
 pub fn biclique_covers(g: &Bigraph, max_size: usize) -> impl Iterator<Item = BicliqueCover> + '_ {
     let forced_elements: Vec<Entry> = forced::forced_elements(g);
