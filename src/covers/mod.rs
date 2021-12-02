@@ -1,4 +1,5 @@
 use crate::*;
+use std::mem;
 
 mod containment;
 
@@ -9,8 +10,10 @@ struct Layer {
     /// The part which is currently forced.
     bicliques: Box<[Biclique]>,
     data: TBitSet<usize>,
+    changed: TBitSet<usize>,
 }
 
+// per entry offsets
 const IN_BICLIQUE: usize = 0;
 const POSSIBILITY_OFFSET: usize = IN_BICLIQUE + 1;
 
@@ -47,6 +50,7 @@ impl Layer {
         let mut layer = Layer {
             bicliques: bicliques.into_boxed_slice(),
             data: TBitSet::new(),
+            changed: (0..k).collect(),
         };
 
         for e in g.entries() {
@@ -134,7 +138,9 @@ impl Layer {
                 }
             }
         }
+
         self.bicliques[c].left.add(x);
+        self.changed.add(c);
 
         self.consistent(g)
     }
@@ -166,6 +172,7 @@ impl Layer {
         }
 
         self.bicliques[c].right.add(y);
+        self.changed.add(c);
 
         self.consistent(g)
     }
@@ -220,38 +227,47 @@ impl Layer {
     /// Guesses an entry, removing it from `self` and returning
     /// a new layer with the chosen entry.
     fn guess_entry(&mut self, g: &Bigraph) -> Option<Layer> {
-        // TODO: be clever here
-        for e in g.entries() {
-            let index = Layer::index(g, self.bicliques.len(), e);
-            'cliques: for c in self.cliques() {
-                if self.data.get(index.may_add(c)) {
-                    let mut new_layer = self.clone();
-                    new_layer.add_entry(g, c, e);
-                    for i in new_layer.cliques() {
-                        if i != c && new_layer.bicliques[c].eq(&new_layer.bicliques[i]) {
+        for max_choices in 2..self.bicliques.len() {
+            for e in g.entries() {
+                let index = Layer::index(g, self.bicliques.len(), e);
+                let num_choices = self
+                    .cliques()
+                    .filter(|&c| self.data.get(index.may_add(c)))
+                    .count();
+                if num_choices > max_choices {
+                    continue;
+                }
+
+                'cliques: for c in self.cliques() {
+                    if self.data.get(index.may_add(c)) {
+                        let mut new_layer = self.clone();
+                        new_layer.add_entry(g, c, e);
+                        for i in new_layer.cliques() {
+                            if i != c && new_layer.bicliques[c].eq(&new_layer.bicliques[i]) {
+                                continue 'cliques;
+                            }
+                        }
+
+                        let prev_cliques = &self.bicliques[c];
+                        if prev_cliques.left.get(e.0) {
+                            for x in 0..g.left {
+                                let index = Layer::index(g, self.bicliques.len(), Entry(x, e.1));
+                                self.data.remove(index.may_add(c));
+                            }
+                        } else if prev_cliques.right.get(e.1) {
+                            for y in 0..g.right {
+                                let index = Layer::index(g, self.bicliques.len(), Entry(e.0, y));
+                                self.data.remove(index.may_add(c));
+                            }
+                        } else if prev_cliques.left.is_empty() && prev_cliques.right.is_empty() {
+                            self.data.remove(index.may_add(c));
+                        } else {
                             continue 'cliques;
                         }
-                    }
 
-                    let prev_cliques = &self.bicliques[c];
-                    if prev_cliques.left.get(e.0) {
-                        for x in 0..g.left {
-                            let index = Layer::index(g, self.bicliques.len(), Entry(x, e.1));
-                            self.data.remove(index.may_add(c));
-                        }
-                    } else if prev_cliques.right.get(e.1) {
-                        for y in 0..g.right {
-                            let index = Layer::index(g, self.bicliques.len(), Entry(e.0, y));
-                            self.data.remove(index.may_add(c));
-                        }
-                    } else if prev_cliques.left.is_empty() && prev_cliques.right.is_empty() {
-                        self.data.remove(index.may_add(c));
-                    } else {
-                        continue 'cliques;
+                        self.consistent(g);
+                        return Some(new_layer);
                     }
-
-                    self.consistent(g);
-                    return Some(new_layer);
                 }
             }
         }
@@ -281,55 +297,54 @@ fn iterate_sat<F: FnMut(BicliqueCover) -> ControlFlow<()>>(
     f(BicliqueCover::new(g, layer.bicliques.clone()))
 }
 
-fn left_maximal(g: &Bigraph, layer: &mut Layer) {
-    for c in layer.cliques() {
-        let mut maximal: TBitSet<u32> = (0..g.right).collect();
-        for x in layer.bicliques[c].left.iter() {
-            for y in 0..g.right {
-                if !g.get(Entry(x, y)) {
-                    maximal.remove(y)
-                }
+fn left_maximal(g: &Bigraph, layer: &mut Layer, c: usize) {
+    let mut maximal: TBitSet<u32> = (0..g.right).collect();
+    for x in layer.bicliques[c].left.iter() {
+        for y in 0..g.right {
+            if !g.get(Entry(x, y)) {
+                maximal.remove(y)
+            }
+        }
+    }
+
+    'left: for x in 0..g.left {
+        for y in maximal.iter() {
+            if !g.get(Entry(x, y)) {
+                continue 'left;
             }
         }
 
-        'left: for x in 0..g.left {
-            for y in maximal.iter() {
-                if !g.get(Entry(x, y)) {
-                    continue 'left;
-                }
-            }
-
-            layer.add_left(g, c, x);
-        }
+        layer.add_left(g, c, x);
     }
 }
 
-fn right_maximal(g: &Bigraph, layer: &mut Layer) {
-    for c in layer.cliques() {
-        let mut maximal: TBitSet<u32> = (0..g.left).collect();
-        for y in layer.bicliques[c].right.iter() {
-            for x in 0..g.left {
-                if !g.get(Entry(x, y)) {
-                    maximal.remove(x)
-                }
+fn right_maximal(g: &Bigraph, layer: &mut Layer, c: usize) {
+    let mut maximal: TBitSet<u32> = (0..g.left).collect();
+    for y in layer.bicliques[c].right.iter() {
+        for x in 0..g.left {
+            if !g.get(Entry(x, y)) {
+                maximal.remove(x)
+            }
+        }
+    }
+
+    'right: for y in 0..g.right {
+        for x in maximal.iter() {
+            if !g.get(Entry(x, y)) {
+                continue 'right;
             }
         }
 
-        'right: for y in 0..g.right {
-            for x in maximal.iter() {
-                if !g.get(Entry(x, y)) {
-                    continue 'right;
-                }
-            }
-
-            layer.add_right(g, c, y);
-        }
+        layer.add_right(g, c, y);
     }
 }
 
 fn restrict_layer(g: &Bigraph, layer: &mut Layer) -> Result<(), ()> {
-    right_maximal(g, layer);
-    left_maximal(g, layer);
+    for c in mem::take(&mut layer.changed) {
+        right_maximal(g, layer, c);
+        left_maximal(g, layer, c);
+    }
+    layer.changed.clear();
     layer.forced_updates(g)
 }
 
