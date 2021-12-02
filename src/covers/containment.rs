@@ -1,13 +1,46 @@
 use crate::*;
 
+struct Entry {
+    data: Box<[Biclique]>,
+    maximal: usize,
+}
+
+impl Entry {
+    fn new(g: &Bigraph, mut data: Box<[Biclique]>) -> Entry {
+        let mut maximal = 0;
+        for i in 0..data.len() {
+            if g.is_maximal(&data[i]) {
+                data.swap(i, maximal);
+                maximal += 1;
+            }
+        }
+
+        Entry { data, maximal }
+    }
+
+    fn maximal(&self) -> impl Iterator<Item = &Biclique> + '_ {
+        self.data.iter().take(self.maximal)
+    }
+
+    fn tail(&self) -> impl Iterator<Item = &Biclique> + '_ {
+        self.data.iter().skip(self.maximal)
+    }
+}
+
 pub(crate) struct Containment {
-    entries: Vec<Box<[Biclique]>>,
+    entries: Vec<Entry>,
     layers: Vec<(usize, Box<[Biclique]>)>,
 }
 
-fn contains_reject(data: &[Biclique], other: &[Biclique]) -> bool {
-    if other
-        .iter()
+fn contains_reject(data: &[Biclique], entry: &Entry) -> bool {
+    for c in entry.maximal() {
+        if !data.iter().any(|q| q == c) {
+            return false;
+        }
+    }
+
+    if entry
+        .tail()
         .any(|clique| data.iter().all(|c| !c.contains_clique(clique)))
     {
         return false;
@@ -16,18 +49,7 @@ fn contains_reject(data: &[Biclique], other: &[Biclique]) -> bool {
     true
 }
 
-fn contains_slow(data: &[Biclique], other: &[Biclique]) -> bool {
-    let mut superset = Vec::new();
-    for c in data {
-        let mut sup = TBitSet::new();
-        for (i, clique) in other.iter().enumerate() {
-            if c.contains_clique(clique) {
-                sup.add(i);
-            }
-        }
-        superset.push(sup);
-    }
-
+fn solve_superset(mut superset: Vec<TBitSet<usize>>) -> bool {
     let mut changed = true;
     while changed {
         changed = false;
@@ -77,8 +99,23 @@ fn contains_slow(data: &[Biclique], other: &[Biclique]) -> bool {
     recurse(superset)
 }
 
-fn contains(data: &[Biclique], other: &[Biclique]) -> bool {
-    contains_reject(data, other) && contains_slow(data, other)
+fn contains_slow(data: &[Biclique], entry: &Entry) -> bool {
+    let mut superset = Vec::new();
+    for c in data.iter().filter(|&q| entry.maximal().all(|e| q != e)) {
+        let mut sup = TBitSet::new();
+        for (i, clique) in entry.tail().enumerate() {
+            if c.contains_clique(clique) {
+                sup.add(i);
+            }
+        }
+        superset.push(sup);
+    }
+
+    solve_superset(superset)
+}
+
+fn contains(data: &[Biclique], entry: &Entry) -> bool {
+    contains_reject(data, entry) && contains_slow(data, entry)
 }
 
 impl Containment {
@@ -109,13 +146,15 @@ impl Containment {
         true
     }
 
-    pub(crate) fn finish_layer(&mut self, data: Box<[Biclique]>) {
+    pub(crate) fn finish_layer(&mut self, g: &Bigraph, data: Box<[Biclique]>) {
         let (start, clique) = self.layers.pop().unwrap();
-        assert!(contains(&data, &clique));
+        let clique = Entry::new(g, clique);
+        debug_assert!(contains(&data, &clique));
 
         for child in self.entries.drain(start..) {
-            assert!(contains(&child, &clique));
+            debug_assert!(contains(&child.data, &clique));
         }
+
         self.entries.push(clique);
     }
 

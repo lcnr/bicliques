@@ -293,7 +293,7 @@ fn iterate_sat<F: FnMut(BicliqueCover) -> ControlFlow<()>>(
         }
     }
 
-    containment.finish_layer(layer.bicliques.clone());
+    containment.finish_layer(g, layer.bicliques.clone());
     f(BicliqueCover::new(g, layer.bicliques.clone()))
 }
 
@@ -362,7 +362,7 @@ pub(crate) fn iterate<F: FnMut(BicliqueCover) -> ControlFlow<()>>(
             match layer.forced_updates(g) {
                 Ok(()) => (),
                 Err(()) => {
-                    containment.finish_layer(stack.pop().unwrap().bicliques);
+                    containment.finish_layer(g, stack.pop().unwrap().bicliques);
                     continue 'cliques;
                 }
             }
@@ -370,13 +370,13 @@ pub(crate) fn iterate<F: FnMut(BicliqueCover) -> ControlFlow<()>>(
             match restrict_layer(g, layer) {
                 Ok(()) => (),
                 Err(()) => {
-                    containment.finish_layer(stack.pop().unwrap().bicliques);
+                    containment.finish_layer(g, stack.pop().unwrap().bicliques);
                     continue 'cliques;
                 }
             }
 
             if containment.should_discard(&layer.bicliques) {
-                containment.finish_layer(stack.pop().unwrap().bicliques);
+                containment.finish_layer(g, stack.pop().unwrap().bicliques);
                 continue 'cliques;
             }
 
@@ -390,7 +390,7 @@ pub(crate) fn iterate<F: FnMut(BicliqueCover) -> ControlFlow<()>>(
                     }
                 }
 
-                containment.finish_layer(stack.pop().unwrap().bicliques);
+                containment.finish_layer(g, stack.pop().unwrap().bicliques);
             }
         }
     }
