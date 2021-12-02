@@ -118,7 +118,7 @@ impl Bigraph {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Biclique {
     pub left: TBitSet<u32>,
     pub right: TBitSet<u32>,
@@ -145,7 +145,7 @@ impl Biclique {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct BicliqueCover {
     elements: Box<[Biclique]>,
 }
@@ -159,12 +159,18 @@ impl BicliqueCover {
     }
 
     fn consistent(&self, g: &Bigraph) {
-        for x in 0..g.left {
-            for y in 0..g.right {
-                assert_eq!(
-                    g.get(Entry(x, y)),
-                    self.elements.iter().any(|c| c.contains(Entry(x, y)))
-                );
+        cfg_if::cfg_if! {
+            if #[cfg(debug_assertions)] {
+                for x in 0..g.left {
+                    for y in 0..g.right {
+                        assert_eq!(
+                            g.get(Entry(x, y)),
+                            self.elements.iter().any(|c| c.contains(Entry(x, y)))
+                        );
+                    }
+                }
+            } else {
+                let _ = g;
             }
         }
     }

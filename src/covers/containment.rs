@@ -5,7 +5,18 @@ pub(crate) struct Containment {
     layers: Vec<(usize, Box<[Biclique]>)>,
 }
 
-fn contains(data: &[Biclique], other: &[Biclique]) -> bool {
+fn contains_reject(data: &[Biclique], other: &[Biclique]) -> bool {
+    if other
+        .iter()
+        .any(|clique| data.iter().all(|c| !c.contains_clique(clique)))
+    {
+        return false;
+    }
+
+    true
+}
+
+fn contains_slow(data: &[Biclique], other: &[Biclique]) -> bool {
     let mut superset = Vec::new();
     for c in data {
         let mut sup = TBitSet::new();
@@ -66,6 +77,10 @@ fn contains(data: &[Biclique], other: &[Biclique]) -> bool {
     recurse(superset)
 }
 
+fn contains(data: &[Biclique], other: &[Biclique]) -> bool {
+    contains_reject(data, other) && contains_slow(data, other)
+}
+
 impl Containment {
     pub(crate) fn init(init: &[Biclique]) -> Containment {
         let mut c = Containment {
@@ -97,6 +112,7 @@ impl Containment {
     pub(crate) fn finish_layer(&mut self, data: Box<[Biclique]>) {
         let (start, clique) = self.layers.pop().unwrap();
         assert!(contains(&data, &clique));
+
         for child in self.entries.drain(start..) {
             assert!(contains(&child, &clique));
         }

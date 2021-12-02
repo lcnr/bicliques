@@ -77,28 +77,34 @@ impl Layer {
     }
 
     fn consistent(&self, g: &Bigraph) {
-        for x in 0..g.left {
-            for y in 0..g.right {
-                let entry = Entry(x, y);
-                let index = Layer::index(g, self.bicliques.len(), entry);
-                if g.get(entry) {
-                    assert_eq!(
-                        self.data.get(index.in_biclique()),
-                        self.bicliques.iter().any(|c| c.contains(entry))
-                    );
+        cfg_if::cfg_if! {
+            if #[cfg(debug_assertions)] {
+                for x in 0..g.left {
+                    for y in 0..g.right {
+                        let entry = Entry(x, y);
+                        let index = Layer::index(g, self.bicliques.len(), entry);
+                        if g.get(entry) {
+                            assert_eq!(
+                                self.data.get(index.in_biclique()),
+                                self.bicliques.iter().any(|c| c.contains(entry))
+                            );
 
-                    for c in self.cliques() {
-                        if self.data.get(index.may_add(c)) {
-                            assert!(g.may_add(&self.bicliques[c], entry));
-                            assert!(!self.bicliques[c].contains(entry));
+                            for c in self.cliques() {
+                                if self.data.get(index.may_add(c)) {
+                                    assert!(g.may_add(&self.bicliques[c], entry));
+                                    assert!(!self.bicliques[c].contains(entry));
+                                }
+                            }
+                        } else {
+                            assert!(!self.data.get(index.in_biclique()));
+                            for c in self.cliques() {
+                                assert!(!self.data.get(index.may_add(c)));
+                            }
                         }
                     }
-                } else {
-                    assert!(!self.data.get(index.in_biclique()));
-                    for c in self.cliques() {
-                        assert!(!self.data.get(index.may_add(c)));
-                    }
                 }
+            } else {
+                let _ = g;
             }
         }
     }

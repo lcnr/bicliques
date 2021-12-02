@@ -7,3 +7,7 @@ edition = "2021"
 
 [dependencies]
 tindex = "0.5"
+cfg-if = "1.0"
+
+[profile.release]
+debug = true
