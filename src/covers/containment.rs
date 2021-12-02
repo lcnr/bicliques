@@ -9,8 +9,8 @@ fn contains(data: &[Biclique], other: &[Biclique]) -> bool {
     let mut superset = Vec::new();
     for c in data {
         let mut sup = TBitSet::new();
-        for i in 0..other.len() {
-            if c.contains_clique(&other[i]) {
+        for (i, clique) in other.iter().enumerate() {
+            if c.contains_clique(clique) {
                 sup.add(i);
             }
         }

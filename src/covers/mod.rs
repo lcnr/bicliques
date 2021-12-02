@@ -32,10 +32,6 @@ impl Layer {
         DataIndex(g.entry_index(e) * (k + POSSIBILITY_OFFSET))
     }
 
-    fn in_biclique(i: DataIndex) -> usize {
-        i.0 + IN_BICLIQUE
-    }
-
     fn initial(g: &Bigraph, k: usize, forced: &[Entry]) -> Layer {
         let mut bicliques: Vec<Biclique> = forced
             .iter()
@@ -74,13 +70,10 @@ impl Layer {
     }
 
     fn covers(&self, g: &Bigraph) -> bool {
-        for e in g.entries() {
-            if self.bicliques.iter().all(|c| !c.contains(e)) {
-                return false;
-            }
-        }
-
-        true
+        g.entries().all(|e| {
+            self.data
+                .get(Layer::index(g, self.bicliques.len(), e).in_biclique())
+        })
     }
 
     fn consistent(&self, g: &Bigraph) {
@@ -183,10 +176,6 @@ impl Layer {
         self.consistent(g)
     }
 
-    fn may_add_iter(&self, index: DataIndex) -> impl Iterator<Item = usize> + '_ {
-        (0..self.bicliques.len()).filter(move |&i| self.data.get(index.may_add(i)))
-    }
-
     fn forced_updates(&mut self, g: &Bigraph) -> Result<(), ()> {
         let mut changed = true;
         while changed {
@@ -269,7 +258,7 @@ fn iterate_sat<F: FnMut(BicliqueCover) -> ControlFlow<()>>(
     g: &Bigraph,
     containment: &mut Containment,
     mut layer: Layer,
-    mut f: &mut F,
+    f: &mut F,
 ) -> ControlFlow<()> {
     while let Some(mut new_layer) = layer.guess_entry(g) {
         match restrict_layer(g, &mut new_layer) {
@@ -345,7 +334,7 @@ pub(crate) fn iterate<F: FnMut(BicliqueCover) -> ControlFlow<()>>(
     mut f: F,
 ) -> ControlFlow<()> {
     for k in forced.len()..=max_size {
-        let mut layer = Layer::initial(g, k, &forced);
+        let layer = Layer::initial(g, k, &forced);
         let mut containment = Containment::init(&layer.bicliques);
         let mut stack = vec![layer];
         'cliques: while let Some(layer) = stack.last_mut() {
