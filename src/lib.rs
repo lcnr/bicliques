@@ -46,6 +46,7 @@ impl Bigraph {
         Entry(x as u32, y as u32)
     }
 
+    #[inline(always)]
     pub fn get(&self, e: Entry) -> bool {
         self.entries.get(self.entry_index(e))
     }
