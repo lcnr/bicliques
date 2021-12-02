@@ -283,9 +283,7 @@ fn iterate_sat<F: FnMut(BicliqueCover) -> ControlFlow<()>>(
     }
 
     containment.finish_layer(layer.bicliques.clone());
-    f(BicliqueCover {
-        elements: layer.bicliques.clone(),
-    })
+    f(BicliqueCover::new(g, layer.bicliques.clone()))
 }
 
 fn left_maximal(g: &Bigraph, layer: &mut Layer) {

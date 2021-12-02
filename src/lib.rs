@@ -25,6 +25,14 @@ impl Bigraph {
         }
     }
 
+    pub fn left(&self) -> u32 {
+        self.left
+    }
+
+    pub fn right(&self) -> u32 {
+        self.right
+    }
+
     #[inline(always)]
     fn entry_index(&self, Entry(x, y): Entry) -> usize {
         let x = (x as usize) << self.entry_x_offset;
@@ -47,7 +55,7 @@ impl Bigraph {
     }
 
     #[inline(always)]
-    fn can_share(&self, a: Entry, b: Entry) -> bool {
+    fn may_share(&self, a: Entry, b: Entry) -> bool {
         self.get(Entry(a.0, b.1)) && self.get(Entry(b.0, a.1))
     }
 
@@ -88,7 +96,7 @@ impl Bigraph {
     }
 
     pub fn is_maximal_cover(&self, cover: &BicliqueCover) -> bool {
-        cover.elements.iter().all(|clique| self.is_maximal(clique)) 
+        cover.elements.iter().all(|clique| self.is_maximal(clique))
     }
 
     pub fn entries(&self) -> impl Iterator<Item = Entry> + '_ {
@@ -98,18 +106,22 @@ impl Bigraph {
     }
 
     pub fn left_entries(&self, x: u32) -> impl Iterator<Item = Entry> + '_ {
-        (0..self.right).map(move |y| Entry(x, y)).filter(|&e| self.get(e))
+        (0..self.right)
+            .map(move |y| Entry(x, y))
+            .filter(|&e| self.get(e))
     }
 
     pub fn right_entries(&self, y: u32) -> impl Iterator<Item = Entry> + '_ {
-        (0..self.left).map(move |x| Entry(x, y)).filter(|&e| self.get(e))
+        (0..self.left)
+            .map(move |x| Entry(x, y))
+            .filter(|&e| self.get(e))
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Biclique {
-    left: TBitSet<u32>,
-    right: TBitSet<u32>,
+    pub left: TBitSet<u32>,
+    pub right: TBitSet<u32>,
 }
 
 impl Biclique {
@@ -136,6 +148,53 @@ impl Biclique {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BicliqueCover {
     elements: Box<[Biclique]>,
+}
+
+impl BicliqueCover {
+    fn new(g: &Bigraph, elements: Box<[Biclique]>) -> Self {
+        let mut this = BicliqueCover { elements };
+        this.consistent(g);
+        this.canonicalize();
+        this
+    }
+
+    fn consistent(&self, g: &Bigraph) {
+        for x in 0..g.left {
+            for y in 0..g.right {
+                assert_eq!(
+                    g.get(Entry(x, y)),
+                    self.elements.iter().any(|c| c.contains(Entry(x, y)))
+                );
+            }
+        }
+    }
+
+    fn canonicalize(&mut self) {
+        use std::cmp::Ordering;
+        let bitset_ord = |a: &TBitSet<u32>, b: &TBitSet<u32>| {
+            let mut a_iter = a.iter().rev();
+            let mut b_iter = b.iter().rev();
+            loop {
+                match (a_iter.next(), b_iter.next()) {
+                    (None, None) => return Ordering::Equal,
+                    (a, b) => match a.cmp(&b) {
+                        Ordering::Equal => (),
+                        ord => return ord,
+                    },
+                }
+            }
+        };
+
+        self.elements.sort_by(|a, b| {
+            bitset_ord(&a.left, &b.left)
+                .then_with(|| bitset_ord(&a.right, &b.right))
+                .reverse()
+        });
+    }
+
+    pub fn cliques(&self) -> impl Iterator<Item = &Biclique> + '_ {
+        self.elements.iter()
+    }
 }
 
 pub fn biclique_covers<F: FnMut(BicliqueCover) -> ControlFlow<()>>(
