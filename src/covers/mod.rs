@@ -271,7 +271,12 @@ fn iterate_sat<F: FnMut(BicliqueCover) -> ControlFlow<()>>(
     mut layer: Layer,
     mut f: &mut F,
 ) -> ControlFlow<()> {
-    while let Some(new_layer) = layer.guess_entry(g) {
+    while let Some(mut new_layer) = layer.guess_entry(g) {
+        match restrict_layer(g, &mut new_layer) {
+            Ok(()) => (),
+            Err(()) => continue,
+        }
+
         if containment.start_layer(&new_layer.bicliques) {
             iterate_sat(g, containment, new_layer, f)?;
         }
@@ -281,6 +286,58 @@ fn iterate_sat<F: FnMut(BicliqueCover) -> ControlFlow<()>>(
     f(BicliqueCover {
         elements: layer.bicliques.clone(),
     })
+}
+
+fn left_maximal(g: &Bigraph, layer: &mut Layer) {
+    for c in layer.cliques() {
+        let mut maximal: TBitSet<u32> = (0..g.right).collect();
+        for x in layer.bicliques[c].left.iter() {
+            for y in 0..g.right {
+                if !g.get(Entry(x, y)) {
+                    maximal.remove(y)
+                }
+            }
+        }
+
+        'left: for x in 0..g.left {
+            for y in maximal.iter() {
+                if !g.get(Entry(x, y)) {
+                    continue 'left;
+                }
+            }
+
+            layer.add_left(g, c, x);
+        }
+    }
+}
+
+fn right_maximal(g: &Bigraph, layer: &mut Layer) {
+    for c in layer.cliques() {
+        let mut maximal: TBitSet<u32> = (0..g.left).collect();
+        for y in layer.bicliques[c].right.iter() {
+            for x in 0..g.left {
+                if !g.get(Entry(x, y)) {
+                    maximal.remove(x)
+                }
+            }
+        }
+
+        'right: for y in 0..g.right {
+            for x in maximal.iter() {
+                if !g.get(Entry(x, y)) {
+                    continue 'right;
+                }
+            }
+
+            layer.add_right(g, c, y);
+        }
+    }
+}
+
+fn restrict_layer(g: &Bigraph, layer: &mut Layer) -> Result<(), ()> {
+    right_maximal(g, layer);
+    left_maximal(g, layer);
+    layer.forced_updates(g)
 }
 
 pub(crate) fn iterate<F: FnMut(BicliqueCover) -> ControlFlow<()>>(
@@ -302,8 +359,16 @@ pub(crate) fn iterate<F: FnMut(BicliqueCover) -> ControlFlow<()>>(
                 }
             }
 
+            match restrict_layer(g, layer) {
+                Ok(()) => (),
+                Err(()) => {
+                    containment.finish_layer(stack.pop().unwrap().bicliques);
+                    continue 'cliques;
+                }
+            }
+
             if containment.should_discard(&layer.bicliques) {
-                containment.discard_layer(stack.pop().unwrap().bicliques);
+                containment.finish_layer(stack.pop().unwrap().bicliques);
                 continue 'cliques;
             }
 

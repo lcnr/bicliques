@@ -97,7 +97,9 @@ impl Containment {
     pub(crate) fn finish_layer(&mut self, data: Box<[Biclique]>) {
         let (start, clique) = self.layers.pop().unwrap();
         assert!(contains(&data, &clique));
-        self.entries.truncate(start);
+        for child in self.entries.drain(start..) {
+            assert!(contains(&child, &clique));
+        }
         self.entries.push(clique);
     }
 
@@ -109,14 +111,5 @@ impl Containment {
         }
 
         false
-    }
-
-    pub(crate) fn discard_layer(&mut self, data: Box<[Biclique]>) {
-        let (start, clique) = self.layers.pop().unwrap();
-        assert!(contains(&data, &clique));
-        for child in self.entries.drain(start..) {
-            assert!(contains(&child, &clique));
-        }
-        self.entries.push(clique);
     }
 }

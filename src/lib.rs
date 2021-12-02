@@ -67,10 +67,42 @@ impl Bigraph {
         true
     }
 
+    pub fn is_maximal(&self, clique: &Biclique) -> bool {
+        for x in 0..self.left {
+            if !clique.left.get(x) {
+                if clique.right.iter().all(|y| self.get(Entry(x, y))) {
+                    return false;
+                }
+            }
+        }
+
+        for y in 0..self.right {
+            if !clique.right.get(y) {
+                if clique.left.iter().all(|x| self.get(Entry(x, y))) {
+                    return false;
+                }
+            }
+        }
+
+        true
+    }
+
+    pub fn is_maximal_cover(&self, cover: &BicliqueCover) -> bool {
+        cover.elements.iter().all(|clique| self.is_maximal(clique)) 
+    }
+
     pub fn entries(&self) -> impl Iterator<Item = Entry> + '_ {
         self.entries
             .iter()
             .map(|index| self.entry_from_index(index))
+    }
+
+    pub fn left_entries(&self, x: u32) -> impl Iterator<Item = Entry> + '_ {
+        (0..self.right).map(move |y| Entry(x, y)).filter(|&e| self.get(e))
+    }
+
+    pub fn right_entries(&self, y: u32) -> impl Iterator<Item = Entry> + '_ {
+        (0..self.left).map(move |x| Entry(x, y)).filter(|&e| self.get(e))
     }
 }
 
