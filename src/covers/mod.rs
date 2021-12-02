@@ -187,10 +187,9 @@ impl Layer {
         (0..self.bicliques.len()).filter(move |&i| self.data.get(index.may_add(i)))
     }
 
-    fn forced_updates(&mut self, g: &Bigraph) -> Result<bool, ()> {
+    fn forced_updates(&mut self, g: &Bigraph) -> Result<(), ()> {
         let mut changed = true;
         while changed {
-            let mut found_ambig = false;
             changed = false;
             'entries: for e in g.entries() {
                 let index = Layer::index(g, self.bicliques.len(), e);
@@ -204,7 +203,6 @@ impl Layer {
                         match entry {
                             None => entry = Some(i),
                             Some(_) => {
-                                found_ambig = true;
                                 continue 'entries;
                             }
                         }
@@ -218,15 +216,10 @@ impl Layer {
                     return Err(());
                 }
             }
-
-            if !found_ambig && changed {
-                // New correct biclique.
-                return Ok(true);
-            }
         }
 
         // Ambiguity
-        Ok(false)
+        Ok(())
     }
 
     /// Guesses an entry, removing it from `self` and returning
@@ -245,7 +238,23 @@ impl Layer {
                         }
                     }
 
-                    self.data.remove(index.may_add(c));
+                    let prev_cliques = &self.bicliques[c];
+                    if prev_cliques.left.get(e.0) {
+                        for x in 0..g.left {
+                            let index = Layer::index(g, self.bicliques.len(), Entry(x, e.1));
+                            self.data.remove(index.may_add(c));
+                        }
+                    } else if prev_cliques.right.get(e.1) {
+                        for y in 0..g.right {
+                            let index = Layer::index(g, self.bicliques.len(), Entry(e.0, y));
+                            self.data.remove(index.may_add(c));
+                        }
+                    } else if prev_cliques.left.is_empty() && prev_cliques.right.is_empty() {
+                        self.data.remove(index.may_add(c));
+                    } else {
+                        continue 'cliques;
+                    }
+
                     self.consistent(g);
                     return Some(new_layer);
                 }
@@ -256,78 +265,62 @@ impl Layer {
     }
 }
 
-pub struct CoverIterator<'a> {
-    g: &'a Bigraph,
-    k: usize,
+fn iterate_sat<F: FnMut(BicliqueCover) -> ControlFlow<()>>(
+    g: &Bigraph,
+    containment: &mut Containment,
+    mut layer: Layer,
+    mut f: &mut F,
+) -> ControlFlow<()> {
+    while let Some(new_layer) = layer.guess_entry(g) {
+        if containment.start_layer(&new_layer.bicliques) {
+            iterate_sat(g, containment, new_layer, f)?;
+        }
+    }
+
+    containment.finish_layer(layer.bicliques.clone());
+    f(BicliqueCover {
+        elements: layer.bicliques.clone(),
+    })
+}
+
+pub(crate) fn iterate<F: FnMut(BicliqueCover) -> ControlFlow<()>>(
+    g: &Bigraph,
     max_size: usize,
     forced: Vec<Entry>,
-    containment: Containment,
-    stack: Vec<Layer>,
-}
-
-impl<'a> CoverIterator<'a> {
-    pub(crate) fn new(g: &'a Bigraph, max_size: usize, forced: Vec<Entry>) -> CoverIterator<'a> {
-        let k = forced.len();
-        let initial = Layer::initial(g, k, &forced);
-
-        CoverIterator {
-            g,
-            k,
-            max_size,
-            forced,
-            containment: Containment::init(&initial.bicliques),
-            stack: if k > max_size { vec![] } else { vec![initial] },
-        }
-    }
-
-    fn finish_layer(&mut self) -> Option<BicliqueCover> {
-        self.containment
-            .finish_layer(self.stack.pop().unwrap().bicliques);
-        self.next()
-    }
-
-    fn discard_layer(&mut self) -> Option<BicliqueCover> {
-        self.containment
-            .discard_layer(self.stack.pop().unwrap().bicliques);
-        self.next()
-    }
-}
-
-impl<'a> Iterator for CoverIterator<'a> {
-    type Item = BicliqueCover;
-
-    fn next(&mut self) -> Option<BicliqueCover> {
-        if let Some(layer) = self.stack.last_mut() {
-            match layer.forced_updates(self.g) {
-                Ok(true) => Some(BicliqueCover {
-                    elements: layer.bicliques.clone(),
-                }),
-                Ok(false) => {
-                    while let Some(new_layer) = layer.guess_entry(self.g) {
-                        if self.containment.start_layer(&new_layer.bicliques) {
-                            if new_layer.covers(self.g) {
-                                let elements = new_layer.bicliques.clone();
-                                self.stack.push(new_layer);
-                                return Some(BicliqueCover { elements });
-                            } else {
-                                self.stack.push(new_layer);
-                                return self.next();
-                            }
-                        }
-                    }
-
-                    self.finish_layer()
+    mut f: F,
+) -> ControlFlow<()> {
+    for k in forced.len()..=max_size {
+        let mut layer = Layer::initial(g, k, &forced);
+        let mut containment = Containment::init(&layer.bicliques);
+        let mut stack = vec![layer];
+        'cliques: while let Some(layer) = stack.last_mut() {
+            match layer.forced_updates(g) {
+                Ok(()) => (),
+                Err(()) => {
+                    containment.finish_layer(stack.pop().unwrap().bicliques);
+                    continue 'cliques;
                 }
-                Err(()) => self.finish_layer(),
             }
-        } else if self.k < self.max_size {
-            self.k += 1;
-            let init = Layer::initial(self.g, self.k, &self.forced);
-            self.containment.reinit(&init.bicliques);
-            self.stack.push(init);
-            self.next()
-        } else {
-            None
+
+            if containment.should_discard(&layer.bicliques) {
+                containment.discard_layer(stack.pop().unwrap().bicliques);
+                continue 'cliques;
+            }
+
+            if layer.covers(g) {
+                iterate_sat(g, &mut containment, stack.pop().unwrap(), &mut f)?;
+            } else {
+                while let Some(new_layer) = layer.guess_entry(g) {
+                    if containment.start_layer(&new_layer.bicliques) {
+                        stack.push(new_layer);
+                        continue 'cliques;
+                    }
+                }
+
+                containment.finish_layer(stack.pop().unwrap().bicliques);
+            }
         }
     }
+
+    ControlFlow::Continue(())
 }

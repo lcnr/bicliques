@@ -1,3 +1,4 @@
+use std::ops::ControlFlow;
 use tindex::TBitSet;
 
 mod covers;
@@ -105,8 +106,12 @@ pub struct BicliqueCover {
     elements: Box<[Biclique]>,
 }
 
-pub fn biclique_covers(g: &Bigraph, max_size: usize) -> impl Iterator<Item = BicliqueCover> + '_ {
+pub fn biclique_covers<F: FnMut(BicliqueCover) -> ControlFlow<()>>(
+    g: &Bigraph,
+    max_size: usize,
+    f: F,
+) {
     let forced_elements: Vec<Entry> = forced::forced_elements(g);
 
-    covers::CoverIterator::new(g, max_size, forced_elements)
+    covers::iterate(g, max_size, forced_elements, f);
 }

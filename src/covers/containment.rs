@@ -85,11 +85,10 @@ impl Containment {
     /// Does there exists an existing partial biclique cover `X`
     /// for which you can construct a bijective function `sup[x] = y` where `x ⊆ y`.
     pub(crate) fn start_layer(&mut self, data: &[Biclique]) -> bool {
-        for e in &self.entries {
-            if contains(data, e) {
-                return false;
-            }
+        if self.should_discard(data) {
+            return false;
         }
+
         self.layers
             .push((self.entries.len(), data.to_owned().into_boxed_slice()));
         true
@@ -100,6 +99,16 @@ impl Containment {
         assert!(contains(&data, &clique));
         self.entries.truncate(start);
         self.entries.push(clique);
+    }
+
+    pub(crate) fn should_discard(&mut self, data: &[Biclique]) -> bool {
+        for e in &self.entries {
+            if contains(data, e) {
+                return true;
+            }
+        }
+
+        false
     }
 
     pub(crate) fn discard_layer(&mut self, data: Box<[Biclique]>) {
