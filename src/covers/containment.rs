@@ -154,8 +154,6 @@ impl Containment {
         self.layers.push((0, init.to_owned().into_boxed_slice()));
     }
 
-    /// Does there exists an existing partial biclique cover `X`
-    /// for which you can construct a bijective function `sup[x] = y` where `x ⊆ y`.
     pub(crate) fn start_layer(&mut self, data: &[Biclique]) -> bool {
         if self.should_discard(data) {
             return false;
