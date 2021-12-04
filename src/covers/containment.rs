@@ -1,8 +1,10 @@
 use crate::*;
 
+#[derive(Debug)]
 struct Entry {
     data: Box<[Biclique]>,
     maximal: usize,
+    empty: usize,
 }
 
 impl Entry {
@@ -15,17 +17,29 @@ impl Entry {
             }
         }
 
+        let mut empty = data.len();
+        for i in (maximal..data.len()).rev() {
+            if data[i].is_empty() {
+                empty -= 1;
+                data.swap(i, empty);
+            }
+        }
+
         biclique_sort(&mut data[0..maximal]);
 
-        Entry { data, maximal }
+        Entry {
+            data,
+            maximal,
+            empty,
+        }
     }
 
-    fn maximal(&self) -> impl Iterator<Item = &Biclique> + '_ {
-        self.data.iter().take(self.maximal)
+    fn maximal(&self) -> &[Biclique] {
+        &self.data[..self.maximal]
     }
 
-    fn tail(&self) -> impl Iterator<Item = &Biclique> + '_ {
-        self.data.iter().skip(self.maximal)
+    fn tail(&self) -> &[Biclique] {
+        &self.data[self.maximal..self.empty]
     }
 }
 
@@ -43,6 +57,7 @@ fn contains_reject(data: &[Biclique], entry: &Entry) -> bool {
 
     if entry
         .tail()
+        .iter()
         .any(|clique| data.iter().all(|c| !c.contains_clique(clique)))
     {
         return false;
@@ -102,15 +117,18 @@ fn solve_superset(mut superset: Vec<TBitSet<usize>>) -> bool {
 }
 
 fn contains_slow(data: &[Biclique], entry: &Entry) -> bool {
-    let mut superset = Vec::new();
-    for c in data.iter().filter(|&q| entry.maximal().all(|e| q != e)) {
-        let mut sup = TBitSet::new();
-        for (i, clique) in entry.tail().enumerate() {
+    let tail = entry.tail();
+    let mut superset = vec![TBitSet::new(); tail.len()];
+    for (i, c) in data.iter().enumerate() {
+        if entry.maximal().iter().any(|clique| c == clique) {
+            continue;
+        }
+
+        for (j, clique) in tail.iter().enumerate() {
             if c.contains_clique(clique) {
-                sup.add(i);
+                superset[j].add(i);
             }
         }
-        superset.push(sup);
     }
 
     solve_superset(superset)

@@ -156,6 +156,10 @@ impl Biclique {
         }
     }
 
+    fn is_empty(&self) -> bool {
+        self.left.is_empty() && self.right.is_empty()
+    }
+
     fn contains(&self, entry: Entry) -> bool {
         self.left.get(entry.0) && self.right.get(entry.1)
     }
