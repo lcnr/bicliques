@@ -9,5 +9,12 @@ edition = "2021"
 tindex = "0.5"
 cfg-if = "1.0"
 
+[dev-dependencies]
+iai = "0.1"
+
 [profile.release]
 debug = true
+
+[[bench]]
+name = "small"
+harness = false
