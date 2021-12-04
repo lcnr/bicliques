@@ -15,6 +15,8 @@ impl Entry {
             }
         }
 
+        biclique_sort(&mut data[0..maximal]);
+
         Entry { data, maximal }
     }
 

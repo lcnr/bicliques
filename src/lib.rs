@@ -125,6 +125,29 @@ pub struct Biclique {
     pub right: TBitSet<u32>,
 }
 
+fn biclique_sort(bicliques: &mut [Biclique]) {
+    use std::cmp::Ordering;
+    let bitset_ord = |a: &TBitSet<u32>, b: &TBitSet<u32>| {
+        let mut a_iter = a.iter().rev();
+        let mut b_iter = b.iter().rev();
+        loop {
+            match (a_iter.next(), b_iter.next()) {
+                (None, None) => return Ordering::Equal,
+                (a, b) => match a.cmp(&b) {
+                    Ordering::Equal => (),
+                    ord => return ord,
+                },
+            }
+        }
+    };
+
+    bicliques.sort_by(|a, b| {
+        bitset_ord(&a.left, &b.left)
+            .then_with(|| bitset_ord(&a.right, &b.right))
+            .reverse()
+    });
+}
+
 impl Biclique {
     fn empty() -> Biclique {
         Biclique {
@@ -177,26 +200,7 @@ impl BicliqueCover {
     }
 
     fn canonicalize(&mut self) {
-        use std::cmp::Ordering;
-        let bitset_ord = |a: &TBitSet<u32>, b: &TBitSet<u32>| {
-            let mut a_iter = a.iter().rev();
-            let mut b_iter = b.iter().rev();
-            loop {
-                match (a_iter.next(), b_iter.next()) {
-                    (None, None) => return Ordering::Equal,
-                    (a, b) => match a.cmp(&b) {
-                        Ordering::Equal => (),
-                        ord => return ord,
-                    },
-                }
-            }
-        };
-
-        self.elements.sort_by(|a, b| {
-            bitset_ord(&a.left, &b.left)
-                .then_with(|| bitset_ord(&a.right, &b.right))
-                .reverse()
-        });
+        biclique_sort(&mut self.elements)
     }
 
     pub fn cliques(&self) -> impl Iterator<Item = &Biclique> + '_ {
