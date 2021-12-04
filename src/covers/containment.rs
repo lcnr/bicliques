@@ -41,6 +41,10 @@ impl Entry {
     fn tail(&self) -> &[Biclique] {
         &self.data[self.maximal..self.empty]
     }
+
+    fn empty(&self) -> usize {
+        self.data.len() - self.empty
+    }
 }
 
 pub(crate) struct Containment {
@@ -177,7 +181,12 @@ impl Containment {
     }
 
     pub(crate) fn should_discard(&mut self, data: &[Biclique]) -> bool {
+        let empty = data.iter().filter(|&c| c.is_empty()).count();
         for e in &self.entries {
+            if empty > e.empty() {
+                continue;
+            }
+
             if contains(data, e) {
                 return true;
             }
