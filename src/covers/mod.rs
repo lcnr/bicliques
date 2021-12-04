@@ -276,12 +276,12 @@ impl Layer {
     }
 }
 
-fn iterate_sat<F: FnMut(BicliqueCover) -> ControlFlow<()>>(
+fn iterate_sat<T, F: FnMut(BicliqueCover) -> ControlFlow<T>>(
     g: &Bigraph,
     containment: &mut Containment,
     mut layer: Layer,
     f: &mut F,
-) -> ControlFlow<()> {
+) -> ControlFlow<T> {
     while let Some(mut new_layer) = layer.guess_entry(g) {
         match restrict_layer(g, &mut new_layer) {
             Ok(()) => (),
@@ -348,12 +348,12 @@ fn restrict_layer(g: &Bigraph, layer: &mut Layer) -> Result<(), ()> {
     layer.forced_updates(g)
 }
 
-pub(crate) fn iterate<F: FnMut(BicliqueCover) -> ControlFlow<()>>(
+pub(crate) fn iterate<T, F: FnMut(BicliqueCover) -> ControlFlow<T>>(
     g: &Bigraph,
     max_size: usize,
     forced: Vec<Entry>,
     mut f: F,
-) -> ControlFlow<()> {
+) -> ControlFlow<T> {
     for k in forced.len()..=max_size {
         let layer = Layer::initial(g, k, &forced);
         let mut containment = Containment::init(&layer.bicliques);

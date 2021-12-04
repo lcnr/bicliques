@@ -156,6 +156,14 @@ impl Biclique {
         }
     }
 
+    pub fn left(&self) -> impl Iterator<Item = u32> + '_ {
+        self.left.iter()
+    }
+
+    pub fn right(&self) -> impl Iterator<Item = u32> + '_ {
+        self.right.iter()
+    }
+
     fn is_empty(&self) -> bool {
         self.left.is_empty() && self.right.is_empty()
     }
@@ -212,12 +220,12 @@ impl BicliqueCover {
     }
 }
 
-pub fn biclique_covers<F: FnMut(BicliqueCover) -> ControlFlow<()>>(
+pub fn biclique_covers<T, F: FnMut(BicliqueCover) -> ControlFlow<T>>(
     g: &Bigraph,
     max_size: usize,
     f: F,
-) {
+) -> ControlFlow<T> {
     let forced_elements: Vec<Entry> = forced::forced_elements(g);
 
-    covers::iterate(g, max_size, forced_elements, f);
+    covers::iterate(g, max_size, forced_elements, f)
 }
