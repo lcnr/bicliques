@@ -120,7 +120,7 @@ fn contains_slow(data: &[Biclique], entry: &Entry) -> bool {
     let tail = entry.tail();
     let mut superset = vec![TBitSet::new(); tail.len()];
     for (i, c) in data.iter().enumerate() {
-        if entry.maximal().iter().any(|clique| c == clique) {
+        if c.is_empty() || entry.maximal().iter().any(|clique| c == clique) {
             continue;
         }
 
