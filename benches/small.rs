@@ -1,3 +1,4 @@
+#[allow(nonstandard_style)]
 use bicliques::*;
 use iai::black_box;
 use std::ops::ControlFlow;
