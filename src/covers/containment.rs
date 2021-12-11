@@ -42,6 +42,10 @@ impl Entry {
         &self.data[self.maximal..self.empty]
     }
 
+    fn non_empty(&self) -> &[Biclique] {
+        &self.data[..self.empty]
+    }
+
     fn empty(&self) -> usize {
         self.data.len() - self.empty
     }
@@ -121,14 +125,14 @@ fn solve_superset(mut superset: Vec<TBitSet<usize>>) -> bool {
 }
 
 fn contains_slow(data: &[Biclique], entry: &Entry) -> bool {
-    let tail = entry.tail();
-    let mut superset = vec![TBitSet::new(); tail.len()];
+    let non_empty = entry.non_empty();
+    let mut superset = vec![TBitSet::new(); non_empty.len()];
     for (i, c) in data.iter().enumerate() {
-        if c.is_empty() || entry.maximal().iter().position(|clique| c == clique) == Some(i) {
+        if c.is_empty() {
             continue;
         }
 
-        for (j, clique) in tail.iter().enumerate() {
+        for (j, clique) in non_empty.iter().enumerate() {
             if c.contains_clique(clique) {
                 superset[j].add(i);
             }
@@ -137,6 +141,41 @@ fn contains_slow(data: &[Biclique], entry: &Entry) -> bool {
 
     solve_superset(superset)
 }
+
+/*
+fn contains_stupid(data: &[Biclique], entry: &Entry) -> bool {
+    let mut superset = vec![TBitSet::new(); entry.data.len()];
+    for (j, clique) in entry.data.iter().enumerate() {
+        for (i, c) in data.iter().enumerate() {
+            if c.contains_clique(clique) {
+                superset[j].add(i);
+            }
+        }
+    }
+
+    fn recurse(mut sup: Vec<TBitSet<usize>>) -> bool {
+        match sup.pop() {
+            Some(e) => {
+                for item in e {
+                    let mut r = sup.clone();
+                    for q in r.iter_mut() {
+                        q.remove(item);
+                    }
+
+                    if recurse(r) {
+                        return true;
+                    }
+                }
+
+                false
+            }
+            None => true,
+        }
+    }
+
+    recurse(superset)
+}
+*/
 
 fn contains(data: &[Biclique], entry: &Entry) -> bool {
     contains_reject(data, entry) && contains_slow(data, entry)
