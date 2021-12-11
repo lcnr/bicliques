@@ -4,6 +4,9 @@ use tindex::TBitSet;
 mod covers;
 mod forced;
 
+#[cfg(test)]
+mod tests;
+
 #[derive(Clone, Copy)]
 pub struct Entry(pub u32, pub u32);
 
@@ -119,6 +122,20 @@ impl Bigraph {
     }
 }
 
+impl<const L: usize, const R: usize> From<[[bool; R]; L]> for Bigraph {
+    fn from(arr: [[bool; R]; L]) -> Bigraph {
+        let mut g = Bigraph::new(L as u32, R as u32);
+        for (x, row) in arr.iter().enumerate() {
+            for (y, &set) in row.iter().enumerate() {
+                if set {
+                    g.add(Entry(x as u32, y as u32));
+                }
+            }
+        }
+        g
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Biclique {
     pub left: TBitSet<u32>,
@@ -217,6 +234,34 @@ impl BicliqueCover {
 
     pub fn cliques(&self) -> impl Iterator<Item = &Biclique> + '_ {
         self.elements.iter()
+    }
+
+    pub fn print(&self, g: &Bigraph) -> String {
+        let mut s = String::new();
+        for c in self.elements.iter() {
+            for i in 0..g.left() {
+                if c.left.get(i) {
+                    s.push('1');
+                } else {
+                    s.push('0');
+                }
+            }
+
+            s.push('|');
+
+            for i in 0..g.right() {
+                if c.right.get(i) {
+                    s.push('1');
+                } else {
+                    s.push('0');
+                }
+            }
+
+            s.push(' ');
+        }
+
+        s.pop();
+        s
     }
 }
 
