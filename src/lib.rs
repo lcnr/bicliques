@@ -103,7 +103,7 @@ impl Bigraph {
         cover.elements.iter().all(|clique| self.is_maximal(clique))
     }
 
-    pub fn entries(&self) -> impl Iterator<Item = Entry> + '_ {
+    pub fn entries(&self) -> impl Iterator<Item = Entry> + Clone + '_ {
         self.entries
             .iter()
             .map(|index| self.entry_from_index(index))
@@ -232,8 +232,8 @@ impl BicliqueCover {
         biclique_sort(&mut self.elements)
     }
 
-    pub fn cliques(&self) -> impl Iterator<Item = &Biclique> + '_ {
-        self.elements.iter()
+    pub fn cliques(&self) -> &[Biclique] {
+        &self.elements
     }
 
     pub fn print(&self, g: &Bigraph) -> String {

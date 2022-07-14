@@ -127,23 +127,38 @@ const EX10: &str = "6 6
 _ 1 1 1 1 1
 ";
 
+const EX11: &str = "16 11
+1 1 1 _ 1 1 1 _ 1 1 1 _ _ 1 1 1
+1 _ _ 1 1 1 _ 1 1 1 1 1 _ 1 1 _
+_ _ 1 1 1 _ 1 _ 1 1 1 _ 1 _ _ 1
+1 1 1 _ 1 _ _ _ 1 1 1 1 1 _ 1 1
+1 1 1 _ 1 1 _ _ _ _ 1 _ 1 1 _ _
+1 _ _ 1 _ _ _ _ 1 1 1 _ _ 1 _ 1
+_ 1 1 1 1 1 1 1 1 _ _ 1 1 _ _ _
+1 _ 1 1 1 1 1 _ _ 1 1 _ _ 1 _ 1
+1 1 _ _ _ 1 1 _ 1 1 _ _ 1 1 _ _
+1 1 1 1 1 _ 1 _ _ 1 1 1 1 1 _ 1
+1 1 _ 1 _ 1 1 1 _ _ 1 1 1 1 1 1
+";
+
 fn main() {
-    let g = from_str(EX7);
+    let g = from_str(EX11);
 
     println!("{:?}", g);
 
     let mut i = 0;
     let mut cliques = HashSet::new();
     enum Never {}
-    print!("[");
-    bicliques::biclique_covers::<Never, _>(&g, 13, |mut c| {
+    bicliques::biclique_covers::<Never, _>(&g, g.left().min(g.right()) as usize - 1, |mut c| {
         if g.is_maximal_cover(&c) {
-            println!("{}", c.print(&g));
+            if cliques.is_empty() {
+                println!("min: {}", c.cliques().len());
+            }
+            // println!("{}", c.print(&g));
             assert!(cliques.insert(c));
             i += 1;
         }
         ControlFlow::Continue(())
     });
-    print!("]");
     println!("{}", i);
 }
