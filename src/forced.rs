@@ -14,17 +14,10 @@ pub(crate) fn forced_elements(g: &Bigraph) -> Vec<Entry> {
     let mut best = Vec::new();
     while !gen.done() {
         let mut forced = Vec::new();
-        let mut entries = g.entries();
-
-        'outer: loop {
-            while let Some(e) = entries.next() {
-                if !already_forced(g, &forced, e) && gen.flip() {
-                    forced.push(e);
-                    continue 'outer;
-                }
+        for e in g.entries() {
+            if !already_forced(g, &forced, e) && gen.flip() {
+                forced.push(e);
             }
-
-            break;
         }
 
         if forced.len() > best.len() {
