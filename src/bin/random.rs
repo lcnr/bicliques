@@ -1,6 +1,6 @@
 use std::time::Instant;
 
-use bicliques::{forced::*, Bigraph, Entry};
+use bicliques::{forced::forced_elements, old, Bigraph, Entry};
 use rand::{distributions::Bernoulli, distributions::Distribution};
 
 fn main() {
