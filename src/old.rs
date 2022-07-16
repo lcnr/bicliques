@@ -2,7 +2,10 @@ use crate::*;
 
 pub fn forced_elements(g: &Bigraph) -> Vec<Entry> {
     let mut best = Vec::new();
-    let mapping: Vec<_> = g.entries().collect();
+    let mut mapping: Vec<_> = g.entries().collect();
+
+    mapping.sort_by_cached_key(|&e| g.entries().filter(|&o| g.may_share(e, o)).count());
+
     let mut visibility = Vec::new();
     for &e in &mapping {
         let others = (0..visibility.len())
