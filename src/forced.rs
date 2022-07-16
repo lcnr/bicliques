@@ -60,7 +60,6 @@ pub fn forced_elements(g: &Bigraph) -> Vec<Entry> {
         visibility.push(others);
     }
     let cx = Cx {
-        g,
         mapping: &mapping,
         visibility: &visibility,
     };
@@ -70,7 +69,6 @@ pub fn forced_elements(g: &Bigraph) -> Vec<Entry> {
 
 #[derive(Clone, Copy)]
 struct Cx<'x> {
-    g: &'x Bigraph,
     mapping: &'x [Entry],
     // Stores all entries not seen by `index`.
     visibility: &'x [TBitSet<usize>],
