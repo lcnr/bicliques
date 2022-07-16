@@ -30,8 +30,19 @@ fn main() {
                     let brute_size_new = forced_elements(&graph).len();
                     new_time += now.elapsed().as_secs_f64();
                     assert_eq!(brute_size_old, brute_size_new);
+
+                    let now = Instant::now();
+                    let brute_size_new = forced_elements(&graph).len();
+                    new_time += now.elapsed().as_secs_f64();
+
+                    let now = Instant::now();
+                    let brute_size_old = forced_elements_old(&graph).len();
+                    old_time += now.elapsed().as_secs_f64();
+                    assert_eq!(brute_size_old, brute_size_new);
                 }
 
+                new_time /= 2.0;
+                old_time /= 2.0;
                 let ratio = new_time / old_time;
                 println!(
                     "{x}x{y} with p={p}: old={old_time:>7.3}, new={new_time:>7.3}, ratio={ratio}"

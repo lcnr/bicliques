@@ -12,6 +12,10 @@ fn recur_old(
     best: &mut Vec<Entry>,
     mut possible: TBitSet<usize>,
 ) {
+    if best.len() >= chosen.len() + possible.element_count() {
+        return;
+    }
+
     if let Some(first) = possible.iter().next() {
         // First recur_old while choosing `first`, then without.
         possible.remove(first);
@@ -28,9 +32,7 @@ fn recur_old(
         recur_old(g, chosen, best, new_possible);
         chosen.pop();
 
-        if best.len() < chosen.len() + possible.element_count() {
-            recur_old(g, chosen, best, possible);
-        }
+        recur_old(g, chosen, best, possible);
     } else {
         if chosen.len() > best.len() {
             best.clone_from(chosen);
@@ -40,16 +42,22 @@ fn recur_old(
 
 pub fn forced_elements(g: &Bigraph) -> Vec<Entry> {
     let mut best = Vec::new();
-    recur(g, &mut Vec::new(), &mut best, g.entries.clone());
+    let mapping: Vec<_> = g.entries().collect();
+    let cx = Cx {
+        g,
+        mapping: &mapping,
+    };
+    recur(cx, &mut Vec::new(), &mut best, (0..mapping.len()).collect());
     best
 }
 
-fn recur(
-    g: &Bigraph,
-    chosen: &mut Vec<Entry>,
-    best: &mut Vec<Entry>,
-    mut possible: TBitSet<usize>,
-) {
+#[derive(Clone, Copy)]
+struct Cx<'x> {
+    g: &'x Bigraph,
+    mapping: &'x [Entry],
+}
+
+fn recur(cx: Cx<'_>, chosen: &mut Vec<Entry>, best: &mut Vec<Entry>, mut possible: TBitSet<usize>) {
     if best.len() >= chosen.len() + possible.element_count() {
         return;
     }
@@ -57,20 +65,20 @@ fn recur(
     if let Some(first) = possible.iter().next() {
         // First recur while choosing `first`, then without.
         possible.remove(first);
-        let f = g.entry_from_index(first);
+        let f = cx.mapping[first];
 
         chosen.push(f);
         let new_possible = possible
             .iter()
             .filter(|&e| {
-                let e = g.entry_from_index(e);
-                !g.may_share(e, f)
+                let e = cx.mapping[e];
+                !cx.g.may_share(e, f)
             })
             .collect();
-        recur(g, chosen, best, new_possible);
+        recur(cx, chosen, best, new_possible);
         chosen.pop();
 
-        recur(g, chosen, best, possible);
+        recur(cx, chosen, best, possible);
     } else {
         if chosen.len() > best.len() {
             best.clone_from(chosen);
