@@ -53,9 +53,14 @@ fn recur(cx: Cx<'_>, chosen: &mut Vec<Entry>, best: &mut Vec<Entry>, mut possibl
 
         chosen.push(f);
         let new_possible = possible.intersection(&cx.visibility[first]);
+
+        let ignore_check_without = new_possible == possible;
         recur(cx, chosen, best, new_possible);
         chosen.pop();
 
+        if ignore_check_without {
+            return;
+        }
         // We don't choose `first`.
         if best.len() >= chosen.len() + cx.best_possible_improvement[first] {
             return;

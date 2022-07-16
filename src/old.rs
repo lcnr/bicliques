@@ -1,11 +1,8 @@
 use crate::*;
 
 pub fn forced_elements(g: &Bigraph) -> Vec<Entry> {
-    let mut best = Vec::new();
     let mut mapping: Vec<_> = g.entries().collect();
-
     mapping.sort_by_cached_key(|&e| g.entries().filter(|&o| g.may_share(e, o)).count());
-
     let mut visibility = Vec::new();
     for &e in &mapping {
         let others = (0..visibility.len())
@@ -13,11 +10,21 @@ pub fn forced_elements(g: &Bigraph) -> Vec<Entry> {
             .collect();
         visibility.push(others);
     }
-    let cx = Cx {
-        mapping: &mapping,
-        visibility: &visibility,
-    };
-    recur(cx, &mut Vec::new(), &mut best, (0..mapping.len()).collect());
+
+    let mut best = Vec::new();
+    let mut best_possible_improvement = vec![0];
+    for first in 0..mapping.len() {
+        let cx = Cx {
+            mapping: &mapping[0..=first],
+            visibility: &visibility[0..=first],
+            best_possible_improvement: &best_possible_improvement,
+        };
+
+        let possible = visibility[first].clone();
+        recur(cx, &mut vec![mapping[first]], &mut best, possible);
+        best_possible_improvement.push(best.len());
+    }
+
     best
 }
 
@@ -26,6 +33,9 @@ struct Cx<'x> {
     mapping: &'x [Entry],
     // Stores all entries in front of `index` not seen by index.
     visibility: &'x [TBitSet<usize>],
+    // If we don't choose `index`, what's the best possible value
+    // we can get.
+    best_possible_improvement: &'x [usize],
 }
 
 fn recur(cx: Cx<'_>, chosen: &mut Vec<Entry>, best: &mut Vec<Entry>, mut possible: TBitSet<usize>) {
@@ -34,7 +44,10 @@ fn recur(cx: Cx<'_>, chosen: &mut Vec<Entry>, best: &mut Vec<Entry>, mut possibl
     }
 
     if let Some(first) = possible.iter().next_back() {
-        // First recur while choosing `first`, then without.
+        if best.len() > chosen.len() + cx.best_possible_improvement[first] {
+            return;
+        }
+
         possible.remove(first);
         let f = cx.mapping[first];
 
@@ -43,10 +56,13 @@ fn recur(cx: Cx<'_>, chosen: &mut Vec<Entry>, best: &mut Vec<Entry>, mut possibl
         recur(cx, chosen, best, new_possible);
         chosen.pop();
 
-        recur(cx, chosen, best, possible);
-    } else {
-        if chosen.len() > best.len() {
-            best.clone_from(chosen);
+        // We don't choose `first`.
+        if best.len() >= chosen.len() + cx.best_possible_improvement[first] {
+            return;
         }
+
+        recur(cx, chosen, best, possible);
+    } else if chosen.len() > best.len() {
+        best.clone_from(chosen);
     }
 }

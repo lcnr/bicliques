@@ -8,7 +8,7 @@ pub mod old;
 #[cfg(test)]
 mod tests;
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub struct Entry(pub u32, pub u32);
 
 #[derive(Debug)]
