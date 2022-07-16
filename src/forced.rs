@@ -62,7 +62,7 @@ pub fn forced_elements(g: &Bigraph) -> Vec<Entry> {
     let mapping: Vec<_> = g.entries().collect();
     let mut visibility = Vec::new();
     for &e in &mapping {
-        let others = (0..mapping.len())
+        let others = (0..visibility.len())
             .filter(|&o| !g.may_share(e, mapping[o]))
             .collect();
         visibility.push(others);
@@ -78,7 +78,7 @@ pub fn forced_elements(g: &Bigraph) -> Vec<Entry> {
 #[derive(Clone, Copy)]
 struct Cx<'x> {
     mapping: &'x [Entry],
-    // Stores all entries not seen by `index`.
+    // Stores all entries in front of `index` not seen by index.
     visibility: &'x [TBitSet<usize>],
 }
 
@@ -87,7 +87,7 @@ fn recur(cx: Cx<'_>, chosen: &mut Vec<Entry>, best: &mut Vec<Entry>, mut possibl
         return;
     }
 
-    if let Some(first) = possible.iter().next() {
+    if let Some(first) = possible.iter().next_back() {
         // First recur while choosing `first`, then without.
         possible.remove(first);
         let f = cx.mapping[first];
