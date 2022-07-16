@@ -1,29 +1,39 @@
-use exhaustigen::Gen;
-
 use crate::*;
 
-fn already_forced(g: &Bigraph, forced: &[Entry], e: Entry) -> bool {
-    forced
-        .iter()
-        .any(|f: &Entry| g.get(Entry(e.0, f.1)) && g.get(Entry(f.0, e.1)))
+pub fn forced_elements(g: &Bigraph) -> Vec<Entry> {
+    let mut best = Vec::new();
+    recur(g, &mut Vec::new(), &mut best, g.entries.clone());
+    best
 }
 
-pub(crate) fn forced_elements(g: &Bigraph) -> Vec<Entry> {
-    let mut gen = Gen::new();
+fn recur(
+    g: &Bigraph,
+    chosen: &mut Vec<Entry>,
+    best: &mut Vec<Entry>,
+    mut possible: TBitSet<usize>,
+) {
+    if let Some(first) = possible.iter().next() {
+        // First recur while choosing `first`, then without.
+        possible.remove(first);
+        let f = g.entry_from_index(first);
 
-    let mut best = Vec::new();
-    while !gen.done() {
-        let mut forced = Vec::new();
-        for e in g.entries() {
-            if !already_forced(g, &forced, e) && gen.flip() {
-                forced.push(e);
-            }
+        chosen.push(f);
+        let new_possible = possible
+            .iter()
+            .filter(|&e| {
+                let e = g.entry_from_index(e);
+                !g.may_share(e, f)
+            })
+            .collect();
+        recur(g, chosen, best, new_possible);
+        chosen.pop();
+
+        if best.len() < chosen.len() + possible.element_count() {
+            recur(g, chosen, best, possible);
         }
-
-        if forced.len() > best.len() {
-            best = forced;
+    } else {
+        if chosen.len() > best.len() {
+            best.clone_from(chosen);
         }
     }
-
-    best
 }

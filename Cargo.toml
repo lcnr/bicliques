@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 tindex = "0.5"
 cfg-if = "1.0"
-exhaustigen = "0.1"
+rand = "0.8"
 
 [dev-dependencies]
 iai = "0.1"

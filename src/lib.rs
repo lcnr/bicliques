@@ -2,7 +2,7 @@ use std::ops::ControlFlow;
 use tindex::TBitSet;
 
 mod covers;
-mod forced;
+pub mod forced;
 
 #[cfg(test)]
 mod tests;
