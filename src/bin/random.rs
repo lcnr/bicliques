@@ -29,7 +29,7 @@ fn main() {
                     let now = Instant::now();
                     let brute_size_new = forced_elements(&graph).len();
                     new_time += now.elapsed().as_secs_f64();
-                    assert_eq!(brute_size_old, brute_size_new);
+                    assert_eq!(brute_size_old, brute_size_new, "{:?}", graph);
 
                     let now = Instant::now();
                     let brute_size_new = forced_elements(&graph).len();
