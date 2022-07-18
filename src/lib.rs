@@ -1,4 +1,4 @@
-use std::ops::ControlFlow;
+use std::{fmt, ops::ControlFlow};
 use tindex::TBitSet;
 
 mod covers;
@@ -8,7 +8,7 @@ pub mod old;
 #[cfg(test)]
 mod tests;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Edge(pub u32, pub u32);
 
 #[derive(Debug)]
@@ -17,6 +17,22 @@ pub struct Bigraph {
     edge_x_offset: u8,
     right: u32,
     entries: TBitSet<usize>,
+}
+
+impl fmt::Display for Bigraph {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for x in 0..self.left() {
+            for y in 0..self.right() {
+                if self.get(Edge(x, y)) {
+                    write!(f, "x")?;
+                } else {
+                    write!(f, "_")?;
+                }
+            }
+            writeln!(f)?;
+        }
+        Ok(())
+    }
 }
 
 impl Bigraph {
@@ -105,21 +121,23 @@ impl Bigraph {
     }
 
     pub fn entries(&self) -> impl Iterator<Item = Edge> + Clone + '_ {
-        self.entries
-            .iter()
-            .map(|index| self.edge_from_index(index))
+        self.entries.iter().map(|index| self.edge_from_index(index))
     }
 
     pub fn left_entries(&self, x: u32) -> impl Iterator<Item = Edge> + '_ {
+        let start = (x as usize) << self.edge_x_offset;
         (0..self.right)
+            .filter(move |&y| self.entries.get(start + y as usize))
             .map(move |y| Edge(x, y))
-            .filter(|&e| self.get(e))
     }
 
     pub fn right_entries(&self, y: u32) -> impl Iterator<Item = Edge> + '_ {
         (0..self.left)
+            .filter(move |&x| {
+                let start = (x as usize) << self.edge_x_offset;
+                self.entries.get(start + y as usize)
+            })
             .map(move |x| Edge(x, y))
-            .filter(|&e| self.get(e))
     }
 }
 

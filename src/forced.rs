@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use crate::*;
 
 pub fn forced_elements(g: &Bigraph) -> Vec<Edge> {
@@ -7,9 +9,7 @@ pub fn forced_elements(g: &Bigraph) -> Vec<Edge> {
     mapping.retain(|&e| guaranteed.iter().all(|&o| !g.may_share(e, o)));
 
     let dominated_entries = dominated_entries(g, &mapping);
-    for e in dominated_entries {
-        mapping.retain(|&o| o != e);
-    }
+    mapping.retain(|e| !dominated_entries.contains(e));
 
     mapping.sort_by_cached_key(|&e| g.entries().filter(|&o| g.may_share(e, o)).count());
     let mut visibility = Vec::new();
@@ -74,20 +74,67 @@ fn optimal_forced_elements(mapping: &[Edge]) -> Vec<Edge> {
     guaranteed
 }
 
-fn dominated_entries(g: &Bigraph, mapping: &[Edge]) -> Vec<Edge> {
-    for &Edge(x, y) in mapping {
-        // For all entries in row
-    }
-    for x in 0..g.left() {
-        for y in 0..g.right() {
-            if !g.get(Edge(x, y)) {
-                continue;
+fn dominated_entries(g: &Bigraph, mapping: &[Edge]) -> HashSet<Edge> {
+    let mut dominated = HashSet::new();
+    'outer: for &Edge(x, y) in mapping {
+        for Edge(a, _) in g.right_entries(y) {
+            for Edge(_, b) in g.left_entries(a) {
+                if !g.get(Edge(x, b)) {
+                    continue 'outer;
+                }
             }
-
-
         }
+
+        dominated.insert(Edge(x, y));
     }
-    Vec::new()
+
+    'outer: for &Edge(x, y) in mapping {
+        for Edge(_, b) in g.left_entries(x) {
+            for Edge(a, _) in g.right_entries(b) {
+                if !g.get(Edge(a, y)) {
+                    continue 'outer;
+                }
+            }
+        }
+
+        dominated.insert(Edge(x, y));
+    }
+
+    if dominated.len() < 2 {
+        return dominated;
+    }
+
+    for x in 0..g.left() {
+        let mut possible: TBitSet<u32> = TBitSet::new();
+        let mut min_y = g.left_entries(x).next().map_or(0, |e| e.1);
+        for Edge(_, y) in g.left_entries(x) {
+            for x in 0..g.left() {
+                if !possible.get(x) && !g.get(Edge(x, y)) {
+                    possible.remove(x);
+                    min_y = y;
+                }
+            }
+        }
+
+        dominated.remove(&Edge(x, min_y));
+    }
+
+    for y in 0..g.right() {
+        let mut possible: TBitSet<u32> = (0..g.right()).collect();
+        let mut min_x = g.right_entries(y).next().map_or(0, |e| e.0);
+        for Edge(x, _) in g.right_entries(y) {
+            for y in 0..g.right() {
+                if possible.get(y) && !g.get(Edge(x, y)) {
+                    possible.remove(y);
+                    min_x = x;
+                }
+            }
+        }
+
+        dominated.remove(&Edge(min_x, y));
+    }
+
+    dominated
 }
 
 #[derive(Clone, Copy)]

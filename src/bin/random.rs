@@ -6,8 +6,8 @@ use rand::{distributions::Bernoulli, distributions::Distribution};
 fn main() {
     let rng = &mut rand::thread_rng();
 
-    for x in 12.. {
-        for y in 12..=x {
+    for x in 15.. {
+        for y in 15..=x {
             for p in [0.1, 0.3, 0.5, 0.7, 0.9] {
                 let d = Bernoulli::new(p).unwrap();
                 let mut new_time = 0.0;
@@ -22,23 +22,30 @@ fn main() {
                         }
                     }
 
-                    let now = Instant::now();
-                    let brute_size_old = old::forced_elements(&graph).len();
-                    old_time += now.elapsed().as_secs_f64();
+                    {
+                        let now = Instant::now();
+                        let brute_old = old::forced_elements(&graph);
+                        old_time += now.elapsed().as_secs_f64();
 
-                    let now = Instant::now();
-                    let brute_size_new = forced_elements(&graph).len();
-                    new_time += now.elapsed().as_secs_f64();
-                    assert_eq!(brute_size_old, brute_size_new, "{:?}", graph);
+                        let now = Instant::now();
+                        let brute_new = forced_elements(&graph);
+                        new_time += now.elapsed().as_secs_f64();
+                        assert_eq!(
+                            brute_old.len(),
+                            brute_new.len(),
+                            "{brute_old:?}\n{brute_new:?}\n{graph}"
+                        );
+                    }
+                    {
+                        let now = Instant::now();
+                        let brute_size_new = forced_elements(&graph).len();
+                        new_time += now.elapsed().as_secs_f64();
 
-                    let now = Instant::now();
-                    let brute_size_new = forced_elements(&graph).len();
-                    new_time += now.elapsed().as_secs_f64();
-
-                    let now = Instant::now();
-                    let brute_size_old = old::forced_elements(&graph).len();
-                    old_time += now.elapsed().as_secs_f64();
-                    assert_eq!(brute_size_old, brute_size_new);
+                        let now = Instant::now();
+                        let brute_size_old = old::forced_elements(&graph).len();
+                        old_time += now.elapsed().as_secs_f64();
+                        assert_eq!(brute_size_old, brute_size_new);
+                    }
                 }
 
                 new_time /= 2.0;
