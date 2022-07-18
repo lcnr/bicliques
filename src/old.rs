@@ -48,7 +48,6 @@ fn recur(cx: Cx<'_>, chosen: &mut Vec<Entry>, best: &mut Vec<Entry>, mut possibl
             return;
         }
 
-        possible.remove(first);
         let f = cx.mapping[first];
 
         chosen.push(f);
@@ -66,6 +65,7 @@ fn recur(cx: Cx<'_>, chosen: &mut Vec<Entry>, best: &mut Vec<Entry>, mut possibl
             return;
         }
 
+        possible.remove(first);
         recur(cx, chosen, best, possible);
     } else if chosen.len() > best.len() {
         best.clone_from(chosen);

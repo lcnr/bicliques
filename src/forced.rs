@@ -2,6 +2,10 @@ use crate::*;
 
 pub fn forced_elements(g: &Bigraph) -> Vec<Entry> {
     let mut mapping: Vec<_> = g.entries().collect();
+
+    let mut guaranteed = optimal_forced_elements(&mapping);
+    mapping.retain(|&e| guaranteed.iter().all(|&o| !g.may_share(e, o)));
+
     mapping.sort_by_cached_key(|&e| g.entries().filter(|&o| g.may_share(e, o)).count());
     let mut visibility = Vec::new();
     for &e in &mapping {
@@ -25,7 +29,44 @@ pub fn forced_elements(g: &Bigraph) -> Vec<Entry> {
         best_possible_improvement.push(best.len());
     }
 
-    best
+    guaranteed.extend(best);
+    guaranteed
+}
+
+/// Given a bigraph like the one below, including `X`
+/// as a forced element is always optimal as it only
+/// blocks other entries in its row.
+///
+/// Other entries in its row may block some entries in
+/// other rows as well.
+///
+/// ```plain
+/// Xx_xx
+/// ___xx
+/// ```
+///
+/// The usefulness of this decreases with the size and fullness
+/// of the bigraph.
+fn optimal_forced_elements(mapping: &[Entry]) -> Vec<Entry> {
+    let mut guaranteed: Vec<Entry> = Vec::new();
+    for (i, &e) in mapping.iter().enumerate() {
+        let mut x_ok = true;
+        let mut y_ok = true;
+        for o in mapping[..i].iter().chain(&mapping[i + 1..]) {
+            if e.0 == o.0 {
+                x_ok = false;
+            }
+            if e.1 == o.1 {
+                y_ok = false;
+            }
+        }
+
+        if (y_ok || x_ok) && guaranteed.iter().all(|o| e.0 != o.0 && e.1 != o.1) {
+            guaranteed.push(e);
+        }
+    }
+
+    guaranteed
 }
 
 #[derive(Clone, Copy)]
@@ -44,6 +85,7 @@ fn recur(cx: Cx<'_>, chosen: &mut Vec<Entry>, best: &mut Vec<Entry>, mut possibl
     }
 
     if let Some(first) = possible.iter().next_back() {
+        // Choosing `first`.
         if best.len() > chosen.len() + cx.best_possible_improvement[first] {
             return;
         }
@@ -57,10 +99,11 @@ fn recur(cx: Cx<'_>, chosen: &mut Vec<Entry>, best: &mut Vec<Entry>, mut possibl
         recur(cx, chosen, best, new_possible);
         chosen.pop();
 
+        // We don't choose `first`.
         if ignore_check_without {
             return;
         }
-        // We don't choose `first`.
+
         if best.len() >= chosen.len() + cx.best_possible_improvement[first] {
             return;
         }
