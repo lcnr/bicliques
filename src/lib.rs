@@ -3,7 +3,6 @@ use tindex::TBitSet;
 
 mod covers;
 pub mod forced;
-pub mod old;
 
 #[cfg(test)]
 mod tests;
