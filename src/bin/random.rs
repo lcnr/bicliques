@@ -1,13 +1,13 @@
 use std::time::Instant;
 
-use bicliques::{forced::forced_elements, old, Bigraph, Entry};
+use bicliques::{forced::forced_elements, old, Bigraph, Edge};
 use rand::{distributions::Bernoulli, distributions::Distribution};
 
 fn main() {
     let rng = &mut rand::thread_rng();
 
-    for x in 10.. {
-        for y in 10..=x {
+    for x in 12.. {
+        for y in 12..=x {
             for p in [0.1, 0.3, 0.5, 0.7, 0.9] {
                 let d = Bernoulli::new(p).unwrap();
                 let mut new_time = 0.0;
@@ -17,7 +17,7 @@ fn main() {
                     for x_pos in 0..x {
                         for y_pos in 0..y {
                             if d.sample(rng) {
-                                graph.add(Entry(x_pos, y_pos));
+                                graph.add(Edge(x_pos, y_pos));
                             }
                         }
                     }

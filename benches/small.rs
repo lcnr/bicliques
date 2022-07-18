@@ -16,7 +16,7 @@ macro_rules! bench {
             for (y, row) in DATA.iter().enumerate() {
                 assert_eq!(row.len(), right);
                 for (x, _) in row.iter().enumerate().filter(|&(_, &t)| t) {
-                    g.add(Entry(x as u32, y as u32));
+                    g.add(Edge(x as u32, y as u32));
                 }
             }
 

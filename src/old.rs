@@ -1,7 +1,11 @@
 use crate::*;
 
-pub fn forced_elements(g: &Bigraph) -> Vec<Entry> {
+pub fn forced_elements(g: &Bigraph) -> Vec<Edge> {
     let mut mapping: Vec<_> = g.entries().collect();
+
+    let mut guaranteed = optimal_forced_elements(&mapping);
+    mapping.retain(|&e| guaranteed.iter().all(|&o| !g.may_share(e, o)));
+
     mapping.sort_by_cached_key(|&e| g.entries().filter(|&o| g.may_share(e, o)).count());
     let mut visibility = Vec::new();
     for &e in &mapping {
@@ -25,12 +29,49 @@ pub fn forced_elements(g: &Bigraph) -> Vec<Entry> {
         best_possible_improvement.push(best.len());
     }
 
-    best
+    guaranteed.extend(best);
+    guaranteed
+}
+
+/// Given a bigraph like the one below, including `X`
+/// as a forced element is always optimal as it only
+/// blocks other entries in its row.
+///
+/// Other entries in its row may block some entries in
+/// other rows as well.
+///
+/// ```plain
+/// Xx_xx
+/// ___xx
+/// ```
+///
+/// The usefulness of this decreases with the size and fullness
+/// of the bigraph.
+fn optimal_forced_elements(mapping: &[Edge]) -> Vec<Edge> {
+    let mut guaranteed: Vec<Edge> = Vec::new();
+    for (i, &e) in mapping.iter().enumerate() {
+        let mut x_ok = true;
+        let mut y_ok = true;
+        for o in mapping[..i].iter().chain(&mapping[i + 1..]) {
+            if e.0 == o.0 {
+                x_ok = false;
+            }
+            if e.1 == o.1 {
+                y_ok = false;
+            }
+        }
+
+        if (y_ok || x_ok) && guaranteed.iter().all(|o| e.0 != o.0 && e.1 != o.1) {
+            guaranteed.push(e);
+        }
+    }
+
+    guaranteed
 }
 
 #[derive(Clone, Copy)]
 struct Cx<'x> {
-    mapping: &'x [Entry],
+    mapping: &'x [Edge],
     // Stores all entries in front of `index` not seen by index.
     visibility: &'x [TBitSet<usize>],
     // If we don't choose `index`, what's the best possible value
@@ -38,12 +79,13 @@ struct Cx<'x> {
     best_possible_improvement: &'x [usize],
 }
 
-fn recur(cx: Cx<'_>, chosen: &mut Vec<Entry>, best: &mut Vec<Entry>, mut possible: TBitSet<usize>) {
+fn recur(cx: Cx<'_>, chosen: &mut Vec<Edge>, best: &mut Vec<Edge>, mut possible: TBitSet<usize>) {
     if best.len() >= chosen.len() + possible.element_count() {
         return;
     }
 
     if let Some(first) = possible.iter().next_back() {
+        // Choosing `first`.
         if best.len() > chosen.len() + cx.best_possible_improvement[first] {
             return;
         }
@@ -57,10 +99,11 @@ fn recur(cx: Cx<'_>, chosen: &mut Vec<Entry>, best: &mut Vec<Entry>, mut possibl
         recur(cx, chosen, best, new_possible);
         chosen.pop();
 
+        // We don't choose `first`.
         if ignore_check_without {
             return;
         }
-        // We don't choose `first`.
+
         if best.len() >= chosen.len() + cx.best_possible_improvement[first] {
             return;
         }

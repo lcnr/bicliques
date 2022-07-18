@@ -8,13 +8,13 @@ pub mod old;
 #[cfg(test)]
 mod tests;
 
-#[derive(Debug, Clone, Copy)]
-pub struct Entry(pub u32, pub u32);
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Edge(pub u32, pub u32);
 
 #[derive(Debug)]
 pub struct Bigraph {
     left: u32,
-    entry_x_offset: u8,
+    edge_x_offset: u8,
     right: u32,
     entries: TBitSet<usize>,
 }
@@ -23,7 +23,7 @@ impl Bigraph {
     pub fn new(left: u32, right: u32) -> Bigraph {
         Bigraph {
             left,
-            entry_x_offset: right.next_power_of_two().trailing_zeros() as u8,
+            edge_x_offset: right.next_power_of_two().trailing_zeros() as u8,
             right,
             entries: TBitSet::new(),
         }
@@ -38,41 +38,41 @@ impl Bigraph {
     }
 
     #[inline(always)]
-    fn entry_index(&self, Entry(x, y): Entry) -> usize {
-        let x = (x as usize) << self.entry_x_offset;
+    fn edge_index(&self, Edge(x, y): Edge) -> usize {
+        let x = (x as usize) << self.edge_x_offset;
         x + y as usize
     }
 
     #[inline(always)]
-    fn entry_from_index(&self, index: usize) -> Entry {
-        let x = index >> self.entry_x_offset;
-        let y = index & !(!0 << self.entry_x_offset);
-        Entry(x as u32, y as u32)
+    fn edge_from_index(&self, index: usize) -> Edge {
+        let x = index >> self.edge_x_offset;
+        let y = index & !(!0 << self.edge_x_offset);
+        Edge(x as u32, y as u32)
     }
 
     #[inline(always)]
-    pub fn get(&self, e: Entry) -> bool {
-        self.entries.get(self.entry_index(e))
+    pub fn get(&self, e: Edge) -> bool {
+        self.entries.get(self.edge_index(e))
     }
 
-    pub fn add(&mut self, e: Entry) {
-        self.entries.add(self.entry_index(e))
+    pub fn add(&mut self, e: Edge) {
+        self.entries.add(self.edge_index(e))
     }
 
     #[inline(always)]
-    fn may_share(&self, a: Entry, b: Entry) -> bool {
-        self.get(Entry(a.0, b.1)) && self.get(Entry(b.0, a.1))
+    fn may_share(&self, a: Edge, b: Edge) -> bool {
+        self.get(Edge(a.0, b.1)) && self.get(Edge(b.0, a.1))
     }
 
-    fn may_add(&self, clique: &Biclique, e: Entry) -> bool {
+    fn may_add(&self, clique: &Biclique, e: Edge) -> bool {
         for x in clique.left.iter() {
-            if !self.get(Entry(x, e.1)) {
+            if !self.get(Edge(x, e.1)) {
                 return false;
             }
         }
 
         for y in clique.right.iter() {
-            if !self.get(Entry(e.0, y)) {
+            if !self.get(Edge(e.0, y)) {
                 return false;
             }
         }
@@ -83,7 +83,7 @@ impl Bigraph {
     pub fn is_maximal(&self, clique: &Biclique) -> bool {
         for x in 0..self.left {
             if !clique.left.get(x) {
-                if clique.right.iter().all(|y| self.get(Entry(x, y))) {
+                if clique.right.iter().all(|y| self.get(Edge(x, y))) {
                     return false;
                 }
             }
@@ -91,7 +91,7 @@ impl Bigraph {
 
         for y in 0..self.right {
             if !clique.right.get(y) {
-                if clique.left.iter().all(|x| self.get(Entry(x, y))) {
+                if clique.left.iter().all(|x| self.get(Edge(x, y))) {
                     return false;
                 }
             }
@@ -104,21 +104,21 @@ impl Bigraph {
         cover.elements.iter().all(|clique| self.is_maximal(clique))
     }
 
-    pub fn entries(&self) -> impl Iterator<Item = Entry> + Clone + '_ {
+    pub fn entries(&self) -> impl Iterator<Item = Edge> + Clone + '_ {
         self.entries
             .iter()
-            .map(|index| self.entry_from_index(index))
+            .map(|index| self.edge_from_index(index))
     }
 
-    pub fn left_entries(&self, x: u32) -> impl Iterator<Item = Entry> + '_ {
+    pub fn left_entries(&self, x: u32) -> impl Iterator<Item = Edge> + '_ {
         (0..self.right)
-            .map(move |y| Entry(x, y))
+            .map(move |y| Edge(x, y))
             .filter(|&e| self.get(e))
     }
 
-    pub fn right_entries(&self, y: u32) -> impl Iterator<Item = Entry> + '_ {
+    pub fn right_entries(&self, y: u32) -> impl Iterator<Item = Edge> + '_ {
         (0..self.left)
-            .map(move |x| Entry(x, y))
+            .map(move |x| Edge(x, y))
             .filter(|&e| self.get(e))
     }
 }
@@ -129,7 +129,7 @@ impl<const L: usize, const R: usize> From<[[bool; R]; L]> for Bigraph {
         for (x, row) in arr.iter().enumerate() {
             for (y, &set) in row.iter().enumerate() {
                 if set {
-                    g.add(Entry(x as u32, y as u32));
+                    g.add(Edge(x as u32, y as u32));
                 }
             }
         }
@@ -186,8 +186,8 @@ impl Biclique {
         self.left.is_empty() && self.right.is_empty()
     }
 
-    fn contains(&self, entry: Entry) -> bool {
-        self.left.get(entry.0) && self.right.get(entry.1)
+    fn contains(&self, edge: Edge) -> bool {
+        self.left.get(edge.0) && self.right.get(edge.1)
     }
 
     fn contains_clique(&self, other: &Biclique) -> bool {
@@ -218,8 +218,8 @@ impl BicliqueCover {
                 for x in 0..g.left {
                     for y in 0..g.right {
                         assert_eq!(
-                            g.get(Entry(x, y)),
-                            self.elements.iter().any(|c| c.contains(Entry(x, y)))
+                            g.get(Edge(x, y)),
+                            self.elements.iter().any(|c| c.contains(Edge(x, y)))
                         );
                     }
                 }
@@ -271,7 +271,7 @@ pub fn biclique_covers<T, F: FnMut(BicliqueCover) -> ControlFlow<T>>(
     max_size: usize,
     f: F,
 ) -> ControlFlow<T> {
-    let forced_elements: Vec<Entry> = forced::forced_elements(g);
+    let forced_elements: Vec<Edge> = forced::forced_elements(g);
 
     covers::iterate(g, max_size, forced_elements, f)
 }

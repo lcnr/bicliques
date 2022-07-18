@@ -1,10 +1,15 @@
 use crate::*;
 
-pub fn forced_elements(g: &Bigraph) -> Vec<Entry> {
+pub fn forced_elements(g: &Bigraph) -> Vec<Edge> {
     let mut mapping: Vec<_> = g.entries().collect();
 
     let mut guaranteed = optimal_forced_elements(&mapping);
     mapping.retain(|&e| guaranteed.iter().all(|&o| !g.may_share(e, o)));
+
+    let dominated_entries = dominated_entries(g, &mapping);
+    for e in dominated_entries {
+        mapping.retain(|&o| o != e);
+    }
 
     mapping.sort_by_cached_key(|&e| g.entries().filter(|&o| g.may_share(e, o)).count());
     let mut visibility = Vec::new();
@@ -47,8 +52,8 @@ pub fn forced_elements(g: &Bigraph) -> Vec<Entry> {
 ///
 /// The usefulness of this decreases with the size and fullness
 /// of the bigraph.
-fn optimal_forced_elements(mapping: &[Entry]) -> Vec<Entry> {
-    let mut guaranteed: Vec<Entry> = Vec::new();
+fn optimal_forced_elements(mapping: &[Edge]) -> Vec<Edge> {
+    let mut guaranteed: Vec<Edge> = Vec::new();
     for (i, &e) in mapping.iter().enumerate() {
         let mut x_ok = true;
         let mut y_ok = true;
@@ -69,9 +74,25 @@ fn optimal_forced_elements(mapping: &[Entry]) -> Vec<Entry> {
     guaranteed
 }
 
+fn dominated_entries(g: &Bigraph, mapping: &[Edge]) -> Vec<Edge> {
+    for &Edge(x, y) in mapping {
+        // For all entries in row
+    }
+    for x in 0..g.left() {
+        for y in 0..g.right() {
+            if !g.get(Edge(x, y)) {
+                continue;
+            }
+
+
+        }
+    }
+    Vec::new()
+}
+
 #[derive(Clone, Copy)]
 struct Cx<'x> {
-    mapping: &'x [Entry],
+    mapping: &'x [Edge],
     // Stores all entries in front of `index` not seen by index.
     visibility: &'x [TBitSet<usize>],
     // If we don't choose `index`, what's the best possible value
@@ -79,7 +100,7 @@ struct Cx<'x> {
     best_possible_improvement: &'x [usize],
 }
 
-fn recur(cx: Cx<'_>, chosen: &mut Vec<Entry>, best: &mut Vec<Entry>, mut possible: TBitSet<usize>) {
+fn recur(cx: Cx<'_>, chosen: &mut Vec<Edge>, best: &mut Vec<Edge>, mut possible: TBitSet<usize>) {
     if best.len() >= chosen.len() + possible.element_count() {
         return;
     }

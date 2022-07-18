@@ -13,7 +13,7 @@ fn from_str(s: &str) -> Bigraph {
     for x in 0..left {
         for y in 0..right {
             match iter.next().unwrap() {
-                "1" => g.add(Entry(x, y)),
+                "1" => g.add(Edge(x, y)),
                 "_" => (),
                 e => panic!("unexpected: {}", e),
             }
